@@ -43,8 +43,47 @@ enum {
     GPIO_SOFT_I2C_SCL = (0 * 32) + 23,  // GPMI_WPN
 
     GPIO_W1 = (1 * 32) + 21,
+    GPIO_HEATER = 51,
 };
 
+typedef struct {
+    float temp;
+    int on;
+    qemu_irq set_temp;
+    qemu_irq * in;
+    QEMUTimer * timer;
+} GPIOHeater;
+
+static void gpio_heater_set(void *opaque, int irq, int level)
+{
+    GPIOHeater *h = opaque;
+    h->on = level;
+}
+
+static void gpio_heater_timer(void *opaque)
+{
+    GPIOHeater *h = opaque;
+    if (h->on)
+        h->temp *= 1.01;
+    else
+        h->temp *= 0.99;
+    qemu_set_irq(h->set_temp, (int)h->temp * 1000);
+  //  qemu_mod_timer(h->timer, 1000);
+}
+
+static int
+gpio_heater_init(GPIOHeater *h, qemu_irq set_temp)
+{
+    h->set_temp = set_temp;
+    h->temp = 13.0f;
+    h->on = 0;
+    h->in = qemu_allocate_irqs(gpio_heater_set, h, 1);
+    h->timer = qemu_new_timer_ms(vm_clock, gpio_heater_timer, h);
+    qemu_mod_timer(h->timer, 1000);
+    return 0;
+}
+
+GPIOHeater heater;
 
 static void imx233o_init(QEMUMachineInitArgs *args)
 {
@@ -95,7 +134,15 @@ static void imx233o_init(QEMUMachineInitArgs *args)
 
         qdev_connect_gpio_out(gpio, GPIO_W1, qdev_get_gpio_in(dev, 0));
         qdev_connect_gpio_out(dev, 0, qdev_get_gpio_in(gpio, GPIO_W1));
-    }
+
+        /*
+         * Hookup a virtual GPIO to a relay that change the
+         */
+        {
+            gpio_heater_init(&heater, qdev_get_gpio_in(dev, 1));
+            qdev_connect_gpio_out(gpio, GPIO_HEATER, heater.in[0]);
+        }
+}
     arm_load_kernel(cpu, board_info);
 
 }
