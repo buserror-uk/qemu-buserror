@@ -57,18 +57,24 @@ typedef struct {
 static void gpio_heater_set(void *opaque, int irq, int level)
 {
     GPIOHeater *h = opaque;
-    h->on = level;
+    h->on = !level;
+    printf("QEMU %s %s\n", __func__, h->on ? "ON" : "OFF");
 }
 
 static void gpio_heater_timer(void *opaque)
 {
     GPIOHeater *h = opaque;
     if (h->on)
-        h->temp *= 1.01;
+        h->temp *= 1.001;
     else
-        h->temp *= 0.99;
-    qemu_set_irq(h->set_temp, (int)h->temp * 1000);
-  //  qemu_mod_timer(h->timer, 1000);
+        h->temp *= 0.9995;
+    if (h->temp < 10.0)
+    	h->temp = 10.0;
+    else if (h->temp > 40)
+    	h->temp = 40;
+//    printf("QEMU %s %s %.2f\n", __func__, h->on ? "ON" : "OFF", h->temp);
+    qemu_set_irq(h->set_temp, (int)(h->temp * 1000.0f));
+    qemu_mod_timer(h->timer, qemu_get_clock_ms(vm_clock) + 1000);
 }
 
 static int
@@ -79,7 +85,7 @@ gpio_heater_init(GPIOHeater *h, qemu_irq set_temp)
     h->on = 0;
     h->in = qemu_allocate_irqs(gpio_heater_set, h, 1);
     h->timer = qemu_new_timer_ms(vm_clock, gpio_heater_timer, h);
-    qemu_mod_timer(h->timer, 1000);
+    qemu_mod_timer(h->timer, qemu_get_clock_ms(vm_clock) + 1000);
     return 0;
 }
 
