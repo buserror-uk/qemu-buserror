@@ -10,8 +10,8 @@
  * TODO Alarm, and watchdog ?
  */
 
-#include "sysbus.h"
-#include "mxs.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
 
 #define D(w)
 
@@ -110,10 +110,10 @@ static const MemoryRegionOps mxs_rtc_ops = {
 
 static int mxs_rtc_init(SysBusDevice *dev)
 {
-    mxs_rtc_state *s = FROM_SYSBUS(mxs_rtc_state, dev);
+    mxs_rtc_state *s = OBJECT_CHECK(mxs_rtc_state, dev, "mxs_rtc");
 
     sysbus_init_irq(dev, &s->alarm_irq);
-    memory_region_init_io(&s->iomem, &mxs_rtc_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_rtc_ops, s,
             "mxs_rtc", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 

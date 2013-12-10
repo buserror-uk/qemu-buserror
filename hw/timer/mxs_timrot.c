@@ -12,9 +12,10 @@
  * PWM etc etc.
  * Basically, it supports enough for the linux kernel
  */
-#include "sysbus.h"
-#include "mxs.h"
-#include "ptimer.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
+#include "hw/ptimer.h"
+#include "qemu/main-loop.h"
 
 enum {
     TIMROT_ROTCTRL = 0,
@@ -232,7 +233,7 @@ static const MemoryRegionOps mxs_timrot_ops = {
 
 static int mxs_timrot_init(SysBusDevice *dev)
 {
-    mxs_timrot_state *s = FROM_SYSBUS(mxs_timrot_state, dev);
+    mxs_timrot_state *s = OBJECT_CHECK(mxs_timrot_state, dev, "mxs_timrot");
     int i;
 
     for (i = 0; i < 4; i++) {
@@ -242,7 +243,7 @@ static int mxs_timrot_init(SysBusDevice *dev)
         s->t[i].s = s;
         s->t[i].tid = i;
     }
-    memory_region_init_io(&s->iomem, &mxs_timrot_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_timrot_ops, s,
             "mxs_timrot", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
     return 0;

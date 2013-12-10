@@ -12,8 +12,8 @@
  * been tested with SSP for SD/MMC card access. It ought to work with normal SPI
  * too, and possibly other peripherals, however it's entirely untested
  */
-#include "sysbus.h"
-#include "mxs.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
 
 /*
  * DMA IO block register numbers
@@ -160,8 +160,8 @@ static void mxs_dma_ch_update(mxs_dma_channel *s)
     }
     /* If the semaphore is still on, try to trigger a chained request */
     if ((s->r[CH_SEMA] >> 16) & 0xff) {
-        int64_t now = qemu_get_clock_ns(vm_clock);
-        qemu_mod_timer(s->timer, now + 10);
+        int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        timer_mod(s->timer, now + 10);
     }
 }
 
@@ -241,12 +241,12 @@ static void mxs_dma_write(void *opaque, hwaddr offset, uint64_t value,
             for (i = 0; i < DMA_MAX_CHANNELS; i++)
                 if (s->channel[i].r[CH_NEXTCMD] &&
                         !(s->r[DMA_CTRL1] & (1 << i))) {
-                    int64_t now = qemu_get_clock_ns(vm_clock);
+                    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
                     /* add a bit of latency to the timer. Ideally would
                      * do some calculation proportional to the transfer
                      * size. TODO ?
                      */
-                    qemu_mod_timer(s->channel[i].timer, now + 100000);
+                    timer_mod(s->channel[i].timer, now + 100000);
                 }
             break;
     }
@@ -262,19 +262,19 @@ static const MemoryRegionOps mxs_dma_ops = {
 static void mxs_dma_common_init(mxs_dma_state *s)
 {
     int i;
-    memory_region_init_io(&s->iomem, &mxs_dma_ops, s, "mxs_dma", 0x2000);
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_dma_ops, s, "mxs_dma", 0x2000);
     sysbus_init_mmio(&s->busdev, &s->iomem);
     for (i = 0; i < DMA_MAX_CHANNELS; i++) {
         s->channel[i].dma = s;
         s->channel[i].channel = i;
         s->channel[i].timer =
-                qemu_new_timer_ns(vm_clock, mxs_dma_ch_run, &s->channel[i]);
+                timer_new_ns(QEMU_CLOCK_VIRTUAL, mxs_dma_ch_run, &s->channel[i]);
     }
 }
 
 static int mxs_apbh_dma_init(SysBusDevice *dev)
 {
-    mxs_dma_state *s = FROM_SYSBUS(mxs_dma_state, dev);
+    mxs_dma_state *s = OBJECT_CHECK(mxs_dma_state, dev, "mxs_apbh_dma");
 
     mxs_dma_common_init(s);
     s->name = "dma_apbh";
@@ -291,7 +291,8 @@ static int mxs_apbh_dma_init(SysBusDevice *dev)
 
 static int mxs_apbx_dma_init(SysBusDevice *dev)
 {
-    mxs_dma_state *s = FROM_SYSBUS(mxs_dma_state, dev);
+//    mxs_dma_state *s = FROM_SYSBUS(mxs_dma_state, dev);
+    mxs_dma_state *s = OBJECT_CHECK(mxs_dma_state, dev, "mxs_apbx_dma");
 
     mxs_dma_common_init(s);
     s->name = "dma_apbx";

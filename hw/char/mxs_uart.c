@@ -10,9 +10,9 @@
  * Work in progress ! Right now there's just enough so that linux driver
  * will instantiate after a probe, there is no functional code.
  */
-#include "sysbus.h"
-#include "mxs.h"
-#include "qemu-char.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
+//#include "qemu-char.h"
 
 #define D(w) w
 
@@ -105,13 +105,15 @@ static const MemoryRegionOps mxs_uart_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
+
 static int mxs_uart_init(SysBusDevice *dev)
 {
-    mxs_uart_state *s = FROM_SYSBUS(mxs_uart_state, dev);
+    mxs_uart_state *s = OBJECT_CHECK(mxs_uart_state, dev, "mxs_uart");
+    DeviceState *qdev = DEVICE(dev);
 
-    qdev_init_gpio_in(&dev->qdev, mxs_uart_set_irq, 32 * 3);
+    qdev_init_gpio_in(qdev, mxs_uart_set_irq, 32 * 3);
     sysbus_init_irq(dev, &s->irq);
-    memory_region_init_io(&s->iomem, &mxs_uart_ops, s, "mxs_uart", 0x2000);
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_uart_ops, s, "mxs_uart", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 
     s->r[UART_CTRL] = 0xc0030000;
