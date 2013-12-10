@@ -26,7 +26,6 @@
 #ifndef MXS_H_
 #define MXS_H_
 
-
 /*
  * OCRAM
  */
@@ -205,12 +204,5 @@ static inline uint32_t mxs_write(
     }
     return oldvalue;
 }
-
-/*
- * Instantiate a new imx233 CPU, with all the peripherals. Pass in a
- * partially filled board_into, for the moment only the ram_size is
- * used.
- */
-ARMCPU * imx233_init(struct arm_boot_info * board_info);
 
 #endif /* MXS_H_ */

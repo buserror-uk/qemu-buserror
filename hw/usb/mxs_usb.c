@@ -1,5 +1,5 @@
 /*
- * imx23_usb.c
+ * mxs_usb.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -7,14 +7,14 @@
  */
 
 /*
- * Implements the USB block of the imx23. This is just a case of instantiating
- * a ehci block, and have a few read only registers fr imx23 specifics
+ * Implements the USB block of the mxs. This is just a case of instantiating
+ * a ehci block, and have a few read only registers fr mxs specifics
  */
-#include "sysbus.h"
-#include "imx23.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
 #include "hw/usb/hcd-ehci.h"
 #include "hw/sysbus.h"
-#include "qdev.h"
+#include "hw/qdev.h"
 
 #define D(w)
 
@@ -22,7 +22,7 @@ enum {
     USB_MAX = 256 / 4,
 };
 
-typedef struct imx23_usb_state {
+typedef struct mxs_usb_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
 
@@ -30,12 +30,12 @@ typedef struct imx23_usb_state {
     qemu_irq irq_dma, irq_error;
 
     EHCIState ehci;
-} imx23_usb_state;
+} mxs_usb_state;
 
-static uint64_t imx23_usb_read(
+static uint64_t mxs_usb_read(
         void *opaque, hwaddr offset, unsigned size)
 {
-    imx23_usb_state *s = (imx23_usb_state *) opaque;
+    mxs_usb_state *s = (mxs_usb_state *) opaque;
     uint32_t res = 0;
 
     D(printf("%s %04x (%d) = ", __func__, (int)offset, size);)
@@ -53,10 +53,10 @@ static uint64_t imx23_usb_read(
     return res;
 }
 
-static void imx23_usb_write(void *opaque, hwaddr offset,
+static void mxs_usb_write(void *opaque, hwaddr offset,
         uint64_t value, unsigned size)
 {
-    imx23_usb_state *s = (imx23_usb_state *) opaque;
+    mxs_usb_state *s = (mxs_usb_state *) opaque;
 
     D(printf("%s %04x %08x(%d)\n", __func__, (int)offset, (int)value, size);)
     switch (offset) {
@@ -70,19 +70,19 @@ static void imx23_usb_write(void *opaque, hwaddr offset,
     }
 }
 
-static const MemoryRegionOps imx23_usb_ops = {
-    .read = imx23_usb_read,
-    .write = imx23_usb_write,
+static const MemoryRegionOps mxs_usb_ops = {
+    .read = mxs_usb_read,
+    .write = mxs_usb_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_usb_init(SysBusDevice *dev)
+static int mxs_usb_init(SysBusDevice *dev)
 {
-    imx23_usb_state *s = FROM_SYSBUS(imx23_usb_state, dev);
+    mxs_usb_state *s = OBJECT_CHECK(mxs_usb_state, dev, "mxs_usb");
     EHCIState *u = &s->ehci;
 
-    memory_region_init_io(&s->iomem, &imx23_usb_ops, s,
-            "imx23_usb", 0x100);
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_usb_ops, s,
+            "mxs_usb", 0x100);
 
     s->r[0] = 0xe241fa05;
     s->r[0x04 >> 2] = 0x00000015;
@@ -93,9 +93,10 @@ static int imx23_usb_init(SysBusDevice *dev)
 
     u->capsbase = 0x100;
     u->opregbase = 0x140;
-    u->dma = &dma_context_memory;
+    // FIXME ?!?!?
+//    u->dma = &dma_context_memory;
 
-    usb_ehci_initfn(u, DEVICE(dev));
+    usb_ehci_init(u, DEVICE(dev));
     sysbus_init_irq(dev, &u->irq);
 
     memory_region_add_subregion(&u->mem, 0x0, &s->iomem);
@@ -120,26 +121,26 @@ static int imx23_usb_init(SysBusDevice *dev)
     return 0;
 }
 
-static void imx23_usb_class_init(ObjectClass *klass, void *data)
+static void mxs_usb_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_usb_init;
+    sdc->init = mxs_usb_init;
 }
 
-static TypeInfo imx23_usb_info = {
-    .name          = "imx23_usb",
+static TypeInfo mxs_usb_info = {
+    .name          = "mxs_usb",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_usb_state),
-    .class_init    = imx23_usb_class_init,
+    .instance_size = sizeof(mxs_usb_state),
+    .class_init    = mxs_usb_class_init,
 };
 
-static void imx23_usb_register(void)
+static void mxs_usb_register(void)
 {
-    type_register_static(&imx23_usb_info);
+    type_register_static(&mxs_usb_info);
 }
 
-type_init(imx23_usb_register)
+type_init(mxs_usb_register)
 
 #undef D
 #define D(w)
@@ -151,17 +152,17 @@ enum {
     USBPHY_CTRL = 0x3,
     USBPHY_MAX = 10,
 };
-typedef struct imx23_usbphy_state {
+typedef struct mxs_usbphy_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
 
     uint32_t r[USBPHY_MAX];
-} imx23_usbphy_state;
+} mxs_usbphy_state;
 
-static uint64_t imx23_usbphy_read(void *opaque, hwaddr offset,
+static uint64_t mxs_usbphy_read(void *opaque, hwaddr offset,
         unsigned size)
 {
-    imx23_usbphy_state *s = (imx23_usbphy_state *) opaque;
+    mxs_usbphy_state *s = (mxs_usbphy_state *) opaque;
     uint32_t res = 0;
 
     D(printf("%s %04x (%d) = ", __func__, (int)offset, size);)
@@ -179,16 +180,16 @@ static uint64_t imx23_usbphy_read(void *opaque, hwaddr offset,
     return res;
 }
 
-static void imx23_usbphy_write(void *opaque, hwaddr offset,
+static void mxs_usbphy_write(void *opaque, hwaddr offset,
         uint64_t value, unsigned size)
 {
-    imx23_usbphy_state *s = (imx23_usbphy_state *) opaque;
+    mxs_usbphy_state *s = (mxs_usbphy_state *) opaque;
     uint32_t oldvalue = 0;
 
     D(printf("%s %04x %08x(%d) = ", __func__, (int)offset, (int)value, size);)
     switch (offset >> 4) {
         case 0 ... USBPHY_MAX:
-            oldvalue = imx23_write(&s->r[offset >> 4], offset, value, size);
+            oldvalue = mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
@@ -208,18 +209,18 @@ static void imx23_usbphy_write(void *opaque, hwaddr offset,
 }
 
 
-static const MemoryRegionOps imx23_usbphy_ops = {
-    .read = imx23_usbphy_read,
-    .write = imx23_usbphy_write,
+static const MemoryRegionOps mxs_usbphy_ops = {
+    .read = mxs_usbphy_read,
+    .write = mxs_usbphy_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_usbphy_init(SysBusDevice *dev)
+static int mxs_usbphy_init(SysBusDevice *dev)
 {
-    imx23_usbphy_state *s = FROM_SYSBUS(imx23_usbphy_state, dev);
+    mxs_usbphy_state *s = OBJECT_CHECK(mxs_usbphy_state, dev, "mxs_usbphy");
 
-    memory_region_init_io(&s->iomem, &imx23_usbphy_ops, s,
-            "imx23_usbphy", 0x2000);
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_usbphy_ops, s,
+            "mxs_usbphy", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 
     s->r[USBPHY_PWD] = 0x00860607;
@@ -229,24 +230,24 @@ static int imx23_usbphy_init(SysBusDevice *dev)
 }
 
 
-static void imx23_usbphy_class_init(ObjectClass *klass, void *data)
+static void mxs_usbphy_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_usbphy_init;
+    sdc->init = mxs_usbphy_init;
 }
 
 static TypeInfo usbphy_info = {
-    .name          = "imx23_usbphy",
+    .name          = "mxs_usbphy",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_usbphy_state),
-    .class_init    = imx23_usbphy_class_init,
+    .instance_size = sizeof(mxs_usbphy_state),
+    .class_init    = mxs_usbphy_class_init,
 };
 
-static void imx23_usbphy_register(void)
+static void mxs_usbphy_register(void)
 {
     type_register_static(&usbphy_info);
 }
 
-type_init(imx23_usbphy_register)
+type_init(mxs_usbphy_register)
 

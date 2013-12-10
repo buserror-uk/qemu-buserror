@@ -6,10 +6,12 @@
  * QEMU Licence
  */
 
-#include "sysbus.h"
-#include "exec-memory.h"
-#include "arm-misc.h"
-#include "mxs.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
+#include "hw/arm/arm.h"
+#include "target-arm/cpu.h"
+
+#include "exec/address-spaces.h"
 
 #define D(w)
 //#define D(w) w
@@ -116,7 +118,7 @@ static void imx23_clkctrl_write(void *opaque, hwaddr offset,
         case 0 ... HW_CLKCTRL_MAX:
             if ((offset >> 4) == HW_CLKCTRL_RESET)
                 printf("QEMU: %s OS reset, ignored\n", __func__);
-            imx23_write(&s->r[offset >> 4], offset, value, size);
+            mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
@@ -159,9 +161,9 @@ static void imx23_clkctrl_reset(imx23_clkctrl_state *s)
 
 static int imx23_clkctrl_init(SysBusDevice *dev)
 {
-    imx23_clkctrl_state *s = FROM_SYSBUS(imx23_clkctrl_state, dev);
+    imx23_clkctrl_state *s = OBJECT_CHECK(imx23_clkctrl_state, dev, "imx23_clkctrl");
 
-    memory_region_init_io(&s->iomem, &imx23_clkctrl_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &imx23_clkctrl_ops, s,
             "imx23_clkctrl", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
     imx23_clkctrl_reset(s);
@@ -251,9 +253,9 @@ static const MemoryRegionOps imx23_catchall_ops = {
 
 static int imx23_catchall_init(SysBusDevice *dev)
 {
-    imx23_catchall_state *s = FROM_SYSBUS(imx23_catchall_state, dev);
+    imx23_catchall_state *s = OBJECT_CHECK(imx23_catchall_state, dev, "imx23_catchall");
 
-    memory_region_init_io(&s->iomem, &imx23_catchall_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &imx23_catchall_ops, s,
             "imx23_catchall", 0x82000);
     sysbus_init_mmio(dev, &s->iomem);
     return 0;
@@ -280,6 +282,8 @@ static void imx23_catchall_register(void)
 
 type_init(imx23_catchall_register)
 
+ARMCPU * imx233_init(struct arm_boot_info * board_info);
+
 /*
  * Creates an "empty" imx23, with the peripherals, and nothing
  * else attached. Pass in a partially filled up board_info; currently
@@ -290,7 +294,7 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
     ARMCPU *cpu;
     MemoryRegion *address_space_mem = get_system_memory();
     MemoryRegion *ram = g_new(MemoryRegion, 1);
-    qemu_irq *cpu_pic;
+//    qemu_irq *cpu_pic;
     DeviceState *icoll;
 
     cpu = cpu_arm_init("arm926");
@@ -301,19 +305,19 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
 
     /* On a real system, the first 32k is a `onboard sram' */
     //  printf("%s ram size : %dMB\n", __func__, (int)ram_size / 1024 / 1024);
-    memory_region_init_ram(ram, "imx233.ram", board_info->ram_size);
+    memory_region_init_ram(ram, NULL, "imx233.ram", board_info->ram_size);
     vmstate_register_ram_global(ram);
     memory_region_add_subregion(address_space_mem, 0x0, ram);
 
     sysbus_create_simple("imx23_catchall", MX23_IO_BASE_ADDR, 0);
 
-    cpu_pic = arm_pic_init_cpu(cpu);
+//    cpu_pic = arm_pic_init_cpu(cpu);
 
     sysbus_create_simple("mxs_clkctrl", MX23_CLKCTRL_BASE_ADDR, 0);
 
     icoll = sysbus_create_varargs("mxs_icoll", MX23_ICOLL_BASE_ADDR,
-            cpu_pic[ARM_PIC_CPU_IRQ],
-            cpu_pic[ARM_PIC_CPU_FIQ], NULL);
+            qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),
+            qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_FIQ), NULL);
 
     sysbus_create_varargs("mxs_timrot", MX23_TIMROT_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_TIMER0),

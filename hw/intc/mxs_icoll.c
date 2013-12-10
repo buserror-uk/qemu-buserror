@@ -11,8 +11,8 @@
  * Currently no priority is handled, as linux doesn't use them anyway
  */
 
-#include "sysbus.h"
-#include "mxs.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
 
 enum {
     ICOLL_VECTOR = 0,
@@ -166,12 +166,13 @@ static const MemoryRegionOps mxs_icoll_ops = {
 
 static int mxs_icoll_init(SysBusDevice *dev)
 {
-    mxs_icoll_state *s = FROM_SYSBUS(mxs_icoll_state, dev);
+    mxs_icoll_state *s = OBJECT_CHECK(mxs_icoll_state, dev, "mxs_icoll");
+    DeviceState *qdev = DEVICE(dev);
 
-    qdev_init_gpio_in(&dev->qdev, mxs_icoll_set_irq, 128);
+    qdev_init_gpio_in(qdev, mxs_icoll_set_irq, 128);
     sysbus_init_irq(dev, &s->parent_irq);
     sysbus_init_irq(dev, &s->parent_fiq);
-    memory_region_init_io(&s->iomem, &mxs_icoll_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_icoll_ops, s,
             "mxs_icoll", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
     return 0;

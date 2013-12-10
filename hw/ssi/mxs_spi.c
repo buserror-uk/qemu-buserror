@@ -12,10 +12,10 @@
  * and support 'generic' SPI too.
  * It is geared toward working with DMA, as the linux drivers uses it that way.
  */
-#include "sysbus.h"
-#include "mxs.h"
-#include "blockdev.h"
-#include "sd.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
+#include "sysemu/blockdev.h"
+#include "hw/sd.h"
 
 /*
  * SSP register indexes, most of the useful ones
@@ -196,11 +196,11 @@ static const MemoryRegionOps mxs_ssp_ops = {
 
 static int mxs_ssp_init(SysBusDevice *dev)
 {
-    mxs_ssp_state *s = FROM_SYSBUS(mxs_ssp_state, dev);
+    mxs_ssp_state *s = OBJECT_CHECK(mxs_ssp_state, dev, "mxs_ssp");
 
     sysbus_init_irq(dev, &s->irq_dma);
     sysbus_init_irq(dev, &s->irq_error);
-    memory_region_init_io(&s->iomem, &mxs_ssp_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &mxs_ssp_ops, s,
             "mxs_ssp", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 

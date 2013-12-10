@@ -12,7 +12,6 @@
  */
 #include "hw/sysbus.h"
 #include "hw/arm/mxs.h"
-//#include "qemu-char.h"
 
 #define D(w) w
 
