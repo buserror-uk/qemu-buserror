@@ -18,12 +18,13 @@
     The kernel command line can also be specified with -append. However the default
     one should get a 3.x kernel booting with a working console.
  */
-#include "exec-memory.h"
-#include "arm-misc.h"
-#include "boards.h"
-#include "mxs.h"
-#include "sysbus.h"
-#include "bitbang_i2c.h"
+//#include "exec-memory.h"
+//#include "arm-misc.h"
+#include "hw/boards.h"
+#include "hw/arm/mxs.h"
+#include "hw/arm/arm.h"
+#include "hw/sysbus.h"
+#include "hw/i2c/bitbang_i2c.h"
 
 
 static struct arm_boot_info imx233o_binfo = {
@@ -74,7 +75,7 @@ static void gpio_heater_timer(void *opaque)
     	h->temp = 40;
 //    printf("QEMU %s %s %.2f\n", __func__, h->on ? "ON" : "OFF", h->temp);
     qemu_set_irq(h->set_temp, (int)(h->temp * 1000.0f));
-    qemu_mod_timer(h->timer, qemu_get_clock_ms(vm_clock) + 1000);
+    timer_mod(h->timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 1000);
 }
 
 static int
@@ -84,12 +85,14 @@ gpio_heater_init(GPIOHeater *h, qemu_irq set_temp)
     h->temp = 13.0f;
     h->on = 0;
     h->in = qemu_allocate_irqs(gpio_heater_set, h, 1);
-    h->timer = qemu_new_timer_ms(vm_clock, gpio_heater_timer, h);
-    qemu_mod_timer(h->timer, qemu_get_clock_ms(vm_clock) + 1000);
+    h->timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, gpio_heater_timer, h);
+    timer_mod(h->timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 1000);
     return 0;
 }
 
 GPIOHeater heater;
+
+ARMCPU * imx233_init(struct arm_boot_info * board_info);
 
 static void imx233o_init(QEMUMachineInitArgs *args)
 {

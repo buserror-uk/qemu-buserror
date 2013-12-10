@@ -16,8 +16,8 @@
  * kernel are quite happy to 'set' to whatever value they believe they set...
  */
 
-#include "sysbus.h"
-#include "imx23.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
 
 enum {
     HW_DIGCTL_RAMCTL = 0x3,
@@ -67,7 +67,7 @@ static void imx23_digctl_write(
     if (!dst) {
         return;
     }
-    imx23_write(dst, offset, value, size);
+    mxs_write(dst, offset, value, size);
 }
 
 static const MemoryRegionOps imx23_digctl_ops = {
@@ -78,9 +78,9 @@ static const MemoryRegionOps imx23_digctl_ops = {
 
 static int imx23_digctl_init(SysBusDevice *dev)
 {
-    imx23_digctl_state *s = FROM_SYSBUS(imx23_digctl_state, dev);
+    imx23_digctl_state *s = OBJECT_CHECK(imx23_digctl_state, dev, "imx23_digctl");
 
-    memory_region_init_io(&s->iomem, &imx23_digctl_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &imx23_digctl_ops, s,
             "imx23_digctl", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
     s->reg[HW_DIGCTL_RAMCTL] = 0x6d676953;  /* default reset value */

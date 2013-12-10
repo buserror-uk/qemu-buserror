@@ -10,6 +10,7 @@
 #include "hw/arm/mxs.h"
 #include "hw/arm/arm.h"
 #include "target-arm/cpu.h"
+#include "hw/boards.h"
 
 #include "exec/address-spaces.h"
 
@@ -313,7 +314,7 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
 
 //    cpu_pic = arm_pic_init_cpu(cpu);
 
-    sysbus_create_simple("mxs_clkctrl", MX23_CLKCTRL_BASE_ADDR, 0);
+    sysbus_create_simple("imx23_clkctrl", MX23_CLKCTRL_BASE_ADDR, 0);
 
     icoll = sysbus_create_varargs("mxs_icoll", MX23_ICOLL_BASE_ADDR,
             qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),
@@ -326,8 +327,8 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
             qdev_get_gpio_in(icoll, MX23_INT_TIMER3),
             NULL);
 
-    sysbus_create_simple("mxs_digctl", MX23_DIGCTL_BASE_ADDR, 0);
-    sysbus_create_varargs("mxs_pinctrl", MX23_PINCTRL_BASE_ADDR,
+    sysbus_create_simple("imx23_digctl", MX23_DIGCTL_BASE_ADDR, 0);
+    sysbus_create_varargs("imx23_pinctrl", MX23_PINCTRL_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_GPIO0),
             qdev_get_gpio_in(icoll, MX23_INT_GPIO1),
             qdev_get_gpio_in(icoll, MX23_INT_GPIO2),

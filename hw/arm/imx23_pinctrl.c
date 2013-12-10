@@ -11,8 +11,8 @@
  * It handles GPIO output, and GPIO input from qemu translated
  * into pin values and interrupts, if appropriate.
  */
-#include "sysbus.h"
-#include "imx23.h"
+#include "hw/sysbus.h"
+#include "hw/arm/mxs.h"
 
 #define D(w)
 
@@ -37,6 +37,8 @@ enum {
     PINCTRL_BANK_INTERNAL_STATE = 0xd,
     PINCTRL_MAX = 0xe0,
 };
+
+#define PINCTRL_BANK_REG(_bank, _reg) ((_reg << 8) | (_bank << 4))
 
 enum {
     MUX_GPIO = 0x3,
@@ -79,8 +81,6 @@ static uint8_t imx23_pinctrl_getmux(
     int base = pin / 16, offset = pin % 16;
     return (s->r[PINCTRL_BANK_MUXSEL + base] >> (offset * 2)) & 0x3;
 }
-
-#define PINCTRL_BANK_REG(_bank, _reg) ((_reg << 8) | (_bank << 4))
 
 /*
  * usage imx23_pinctrl_getbit(s, PINCTRL_BANK_IRQEN, 48)...
@@ -193,7 +193,7 @@ static void imx23_pinctrl_write(void *opaque, hwaddr offset,
 //    printf("%s offset %04x value %08x\n", __func__, (int)offset, (int)value);
     switch (offset >> 4) {
         case 0 ... PINCTRL_MAX:
-            oldvalue = imx23_write(&s->r[offset >> 4], offset, value, size);
+            oldvalue = mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
@@ -244,21 +244,22 @@ static const MemoryRegionOps imx23_pinctrl_ops = {
 
 static int imx23_pinctrl_init(SysBusDevice *dev)
 {
-    imx23_pinctrl_state *s = FROM_SYSBUS(imx23_pinctrl_state, dev);
+    imx23_pinctrl_state *s = OBJECT_CHECK(imx23_pinctrl_state, dev, "imx23_pinctrl");
     int i;
+    DeviceState *qdev = DEVICE(dev);
 
     // NEEDED for qdev_find_recursive to work
-    dev->qdev.id = "imx23_pinctrl";
-    qdev_init_gpio_in(&dev->qdev, imx23_pinctrl_set_irq, 32 * PINCTRL_BANK_COUNT);
-    qdev_init_gpio_out(&dev->qdev, s->irq_out, ARRAY_SIZE(s->irq_out));
-    memory_region_init_io(&s->iomem, &imx23_pinctrl_ops, s,
+    qdev->id = "imx23_pinctrl";
+    qdev_init_gpio_in(qdev, imx23_pinctrl_set_irq, 32 * PINCTRL_BANK_COUNT);
+    qdev_init_gpio_out(qdev, s->irq_out, ARRAY_SIZE(s->irq_out));
+    memory_region_init_io(&s->iomem, OBJECT(s), &imx23_pinctrl_ops, s,
             "imx23_pinctrl", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 
     for (i = 0; i < PINCTRL_BANK_COUNT; i++) {
         sysbus_init_irq(dev, &s->irq_in[i]);
-        s->r[PINCTRL_BANK_REG(i, PINCTRL_BANK_DIN)] = 0;
-        s->r[PINCTRL_BANK_REG(i, PINCTRL_BANK_PULL)] = 0xffffffff;
+        s->r[PINCTRL_BANK_REG(i, PINCTRL_BANK_DIN) >> 4] = 0;
+        s->r[PINCTRL_BANK_REG(i, PINCTRL_BANK_PULL) >> 4] = 0xffffffff;
     }
     /* set default mux values */
     for (i = 0; i < 8; i++)

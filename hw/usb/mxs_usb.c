@@ -103,6 +103,7 @@ static int mxs_usb_init(SysBusDevice *dev)
     sysbus_init_mmio(dev, &u->mem);
 
     D(printf("%s created bus %s\n", __func__, u->bus.qbus.name);)
+#if 0
     /*
      * This is suposed to make companion ports that will support
      * slower speed devices. It's inspired from ehci/pci however
@@ -117,7 +118,7 @@ static int mxs_usb_init(SysBusDevice *dev)
         qdev_init_nofail(d);
         sysbus_connect_irq(SYS_BUS_DEVICE(d), 0, u->irq);
     }
-
+#endif
     return 0;
 }
 
