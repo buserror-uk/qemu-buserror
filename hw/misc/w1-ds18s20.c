@@ -41,8 +41,7 @@
     50 05 0d f0 7f ff 00 10 45 t=85000
  *
  */
-#include "hw.h"
-#include "sysbus.h"
+#include "hw/sysbus.h"
 
 
 #define D(w)
@@ -128,7 +127,7 @@ static void w1_make_id(OneWireDevice * w, uint64 unique)
 static void w1_receive(void *opaque, int irq, int level)
 {
     OneWireDevice * w = (OneWireDevice *)opaque;
-    int64_t now = qemu_get_clock_ns(vm_clock);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     int64_t duration = (now - w->stamp) / SCALE_US;
 
     /* the IRQ 0 is for signalling, the second IRQ is to allow external
@@ -293,13 +292,14 @@ static void w1_receive(void *opaque, int irq, int level)
 static int
 w1_device_init(SysBusDevice *dev)
 {
-    OneWireDevice * w = FROM_SYSBUS(OneWireDevice, dev);
+    OneWireDevice * w = OBJECT_CHECK(OneWireDevice, dev, "ds18s20");
+    DeviceState *qdev = DEVICE(dev);
 
-    memory_region_init(&w->dummy_iomem, "w1_device", 0);
+    memory_region_init(&w->dummy_iomem, OBJECT(w), "w1_device", 0);
     sysbus_init_mmio(dev, &w->dummy_iomem);
 
-    qdev_init_gpio_in(&dev->qdev, w1_receive, 2);
-    qdev_init_gpio_out(&dev->qdev, &w->out, 1);
+    qdev_init_gpio_in(qdev, w1_receive, 2);
+    qdev_init_gpio_out(qdev, &w->out, 1);
 
     /* The 0x28 there is the important bit, it's for thermal sensor family */
     w1_make_id(w, 0x00deadbeeff00d28);
