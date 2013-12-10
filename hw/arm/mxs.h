@@ -1,5 +1,5 @@
 /*
- * imx23.h
+ * mxs.h
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -23,8 +23,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef IMX23_H_
-#define IMX23_H_
+#ifndef MXS_H_
+#define MXS_H_
 
 
 /*
@@ -177,7 +177,7 @@
  * This method of writting to peripherals IOs is shared by all the specific
  * imx IO blocks, thus this shared inline
  */
-static inline uint32_t imx23_write(
+static inline uint32_t mxs_write(
         uint32_t * dst, hwaddr offset,
         uint32_t value, unsigned size)
 {
@@ -207,10 +207,10 @@ static inline uint32_t imx23_write(
 }
 
 /*
- * Instantiate a new imx23 CPU, with all the peripherals. Pass in a
+ * Instantiate a new imx233 CPU, with all the peripherals. Pass in a
  * partially filled board_into, for the moment only the ram_size is
  * used.
  */
 ARMCPU * imx233_init(struct arm_boot_info * board_info);
 
-#endif /* IMX23_H_ */
+#endif /* MXS_H_ */

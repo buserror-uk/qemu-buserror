@@ -1,5 +1,5 @@
 /*
- * imx23_uart.c
+ * mxs_uart.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -11,7 +11,7 @@
  * will instantiate after a probe, there is no functional code.
  */
 #include "sysbus.h"
-#include "imx23.h"
+#include "mxs.h"
 #include "qemu-char.h"
 
 #define D(w) w
@@ -31,7 +31,7 @@ enum {
 
     UART_MAX,
 };
-typedef struct imx23_uart_state {
+typedef struct mxs_uart_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
 
@@ -43,12 +43,12 @@ typedef struct imx23_uart_state {
     } fifo[2];
     qemu_irq irq;
     CharDriverState *chr;
-} imx23_uart_state;
+} mxs_uart_state;
 
-static uint64_t imx23_uart_read(
+static uint64_t mxs_uart_read(
         void *opaque, hwaddr offset, unsigned size)
 {
-    imx23_uart_state *s = (imx23_uart_state *) opaque;
+    mxs_uart_state *s = (mxs_uart_state *) opaque;
     uint32_t res = 0;
 
     D(printf("%s %04x (%d) = ", __func__, (int)offset, size);)
@@ -66,16 +66,16 @@ static uint64_t imx23_uart_read(
     return res;
 }
 
-static void imx23_uart_write(void *opaque, hwaddr offset,
+static void mxs_uart_write(void *opaque, hwaddr offset,
         uint64_t value, unsigned size)
 {
-    imx23_uart_state *s = (imx23_uart_state *) opaque;
+    mxs_uart_state *s = (mxs_uart_state *) opaque;
     uint32_t oldvalue = 0;
 
     D(printf("%s %04x %08x(%d)\n", __func__, (int)offset, (int)value, size);)
     switch (offset >> 4) {
         case 0 ... UART_MAX:
-            imx23_write(&s->r[offset >> 4], offset, value, size);
+            mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
@@ -93,25 +93,25 @@ static void imx23_uart_write(void *opaque, hwaddr offset,
     }
 }
 
-static void imx23_uart_set_irq(void *opaque, int irq, int level)
+static void mxs_uart_set_irq(void *opaque, int irq, int level)
 {
-//    imx23_uart_state *s = (imx23_uart_state *)opaque;
+//    mxs_uart_state *s = (mxs_uart_state *)opaque;
     printf("%s %3d = %d\n", __func__, irq, level);
 }
 
-static const MemoryRegionOps imx23_uart_ops = {
-    .read = imx23_uart_read,
-    .write = imx23_uart_write,
+static const MemoryRegionOps mxs_uart_ops = {
+    .read = mxs_uart_read,
+    .write = mxs_uart_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_uart_init(SysBusDevice *dev)
+static int mxs_uart_init(SysBusDevice *dev)
 {
-    imx23_uart_state *s = FROM_SYSBUS(imx23_uart_state, dev);
+    mxs_uart_state *s = FROM_SYSBUS(mxs_uart_state, dev);
 
-    qdev_init_gpio_in(&dev->qdev, imx23_uart_set_irq, 32 * 3);
+    qdev_init_gpio_in(&dev->qdev, mxs_uart_set_irq, 32 * 3);
     sysbus_init_irq(dev, &s->irq);
-    memory_region_init_io(&s->iomem, &imx23_uart_ops, s, "imx23_uart", 0x2000);
+    memory_region_init_io(&s->iomem, &mxs_uart_ops, s, "mxs_uart", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 
     s->r[UART_CTRL] = 0xc0030000;
@@ -122,24 +122,24 @@ static int imx23_uart_init(SysBusDevice *dev)
 }
 
 
-static void imx23_uart_class_init(ObjectClass *klass, void *data)
+static void mxs_uart_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_uart_init;
+    sdc->init = mxs_uart_init;
 }
 
 static TypeInfo uart_info = {
-    .name          = "imx23_uart",
+    .name          = "mxs_uart",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_uart_state),
-    .class_init    = imx23_uart_class_init,
+    .instance_size = sizeof(mxs_uart_state),
+    .class_init    = mxs_uart_class_init,
 };
 
-static void imx23_uart_register(void)
+static void mxs_uart_register(void)
 {
     type_register_static(&uart_info);
 }
 
-type_init(imx23_uart_register)
+type_init(mxs_uart_register)
 

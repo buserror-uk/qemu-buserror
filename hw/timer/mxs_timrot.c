@@ -1,5 +1,5 @@
 /*
- * imx23_timrot.c
+ * mxs_timrot.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -7,13 +7,13 @@
  */
 
 /*
- * Implements the timer block for the imx23. Currently supports only the
+ * Implements the timer block for the mxs. Currently supports only the
  * 32khz based clock, and not all the of the options, nor the input counters,
  * PWM etc etc.
  * Basically, it supports enough for the linux kernel
  */
 #include "sysbus.h"
-#include "imx23.h"
+#include "mxs.h"
 #include "ptimer.h"
 
 enum {
@@ -38,25 +38,25 @@ enum {
     TIM_SELECT = 0,
 };
 
-typedef struct imx23_tim_state {
-    struct imx23_timrot_state * s;
+typedef struct mxs_tim_state {
+    struct mxs_timrot_state * s;
     uint8_t tid;
     uint8_t fired;
     uint32_t control, count;
     qemu_irq irq;
     ptimer_state * timer;
-} imx23_tim_state;
+} mxs_tim_state;
 
-typedef struct imx23_timrot_state {
+typedef struct mxs_timrot_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
 
     uint32_t rotctrl;
 
-    imx23_tim_state t[4];
-} imx23_timrot_state;
+    mxs_tim_state t[4];
+} mxs_timrot_state;
 
-static void tim_set_count(imx23_tim_state * t, uint32_t count)
+static void tim_set_count(mxs_tim_state * t, uint32_t count)
 {
     if (count != (t->count & 0xffff) || t->fired) {
         t->count = (t->count & ~0xffff) | (count & 0xffff);
@@ -68,7 +68,7 @@ static void tim_set_count(imx23_tim_state * t, uint32_t count)
     }
 }
 
-static void tim_set_control(imx23_tim_state * t, uint16_t control)
+static void tim_set_control(mxs_tim_state * t, uint16_t control)
 {
     uint32_t change = t->control ^ control;
     if (!change) {
@@ -110,16 +110,16 @@ static void tim_set_control(imx23_tim_state * t, uint16_t control)
     t->control = control;
 }
 
-static uint32_t tim_get_count(imx23_tim_state * t)
+static uint32_t tim_get_count(mxs_tim_state * t)
 {
     t->count &= 0xffff;
     t->count |= (ptimer_get_count(t->timer) << 16);
     return t->count;
 }
 
-static void imx23_timrot_timer_trigger(void *opaque)
+static void mxs_timrot_timer_trigger(void *opaque)
 {
-    imx23_tim_state * t = opaque;
+    mxs_tim_state * t = opaque;
     t->fired = 1;
     t->control |= (1 << TIM_IRQ);
     if (t->control & (1 << TIM_IRQ_EN))
@@ -131,10 +131,10 @@ static inline int tim_get_tid(hwaddr offset)
     return ((offset >> 4) - TIMROT_CTRL0) >> 1;
 }
 
-static uint64_t imx23_timrot_read(void *opaque, hwaddr offset,
+static uint64_t mxs_timrot_read(void *opaque, hwaddr offset,
         unsigned size)
 {
-    imx23_timrot_state *s = (imx23_timrot_state *) opaque;
+    mxs_timrot_state *s = (mxs_timrot_state *) opaque;
     uint32_t res = 0;
 
     switch (offset >> 4) {
@@ -164,10 +164,10 @@ static uint64_t imx23_timrot_read(void *opaque, hwaddr offset,
     return res;
 }
 
-static void imx23_timrot_write(void *opaque, hwaddr offset,
+static void mxs_timrot_write(void *opaque, hwaddr offset,
         uint64_t value, unsigned size)
 {
-    imx23_timrot_state *s = (imx23_timrot_state *) opaque;
+    mxs_timrot_state *s = (mxs_timrot_state *) opaque;
     uint32_t * dst = NULL;
     uint32_t val = 0;
     uint32_t oldvalue = 0;
@@ -198,7 +198,7 @@ static void imx23_timrot_write(void *opaque, hwaddr offset,
     if (!dst) {
         return;
     }
-    oldvalue = imx23_write(dst, offset, value, size);
+    oldvalue = mxs_write(dst, offset, value, size);
 
     switch (offset >> 4) {
         case TIMROT_ROTCTRL:
@@ -224,47 +224,47 @@ static void imx23_timrot_write(void *opaque, hwaddr offset,
 }
 
 
-static const MemoryRegionOps imx23_timrot_ops = {
-    .read = imx23_timrot_read,
-    .write = imx23_timrot_write,
+static const MemoryRegionOps mxs_timrot_ops = {
+    .read = mxs_timrot_read,
+    .write = mxs_timrot_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_timrot_init(SysBusDevice *dev)
+static int mxs_timrot_init(SysBusDevice *dev)
 {
-    imx23_timrot_state *s = FROM_SYSBUS(imx23_timrot_state, dev);
+    mxs_timrot_state *s = FROM_SYSBUS(mxs_timrot_state, dev);
     int i;
 
     for (i = 0; i < 4; i++) {
-        QEMUBH *bh = qemu_bh_new(imx23_timrot_timer_trigger, &s->t[i]);
+        QEMUBH *bh = qemu_bh_new(mxs_timrot_timer_trigger, &s->t[i]);
         s->t[i].timer = ptimer_init(bh);
         sysbus_init_irq(dev, &s->t[i].irq);
         s->t[i].s = s;
         s->t[i].tid = i;
     }
-    memory_region_init_io(&s->iomem, &imx23_timrot_ops, s,
-            "imx23_timrot", 0x2000);
+    memory_region_init_io(&s->iomem, &mxs_timrot_ops, s,
+            "mxs_timrot", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
     return 0;
 }
 
-static void imx23_timrot_class_init(ObjectClass *klass, void *data)
+static void mxs_timrot_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_timrot_init;
+    sdc->init = mxs_timrot_init;
 }
 
 static TypeInfo timrot_info = {
-    .name          = "imx23_timrot",
+    .name          = "mxs_timrot",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_timrot_state),
-    .class_init    = imx23_timrot_class_init,
+    .instance_size = sizeof(mxs_timrot_state),
+    .class_init    = mxs_timrot_class_init,
 };
 
-static void imx23_timrot_register(void)
+static void mxs_timrot_register(void)
 {
     type_register_static(&timrot_info);
 }
 
-type_init(imx23_timrot_register)
+type_init(mxs_timrot_register)

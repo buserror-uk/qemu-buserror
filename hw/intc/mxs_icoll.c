@@ -1,5 +1,5 @@
 /*
- * imx23_icoll.c
+ * mxs_icoll.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -7,12 +7,12 @@
  */
 
 /*
- * This block implements the interrupt collector of the imx23
+ * This block implements the interrupt collector of the mxs
  * Currently no priority is handled, as linux doesn't use them anyway
  */
 
 #include "sysbus.h"
-#include "imx23.h"
+#include "mxs.h"
 
 enum {
     ICOLL_VECTOR = 0,
@@ -33,7 +33,7 @@ enum {
     ICOLL_INT127 = 0x91,
 };
 
-typedef struct imx23_icoll_state {
+typedef struct mxs_icoll_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
     uint32_t	reg[ICOLL_REG_MAX];
@@ -46,9 +46,9 @@ typedef struct imx23_icoll_state {
 
     qemu_irq parent_irq;
     qemu_irq parent_fiq;
-} imx23_icoll_state;
+} mxs_icoll_state;
 
-static void imx23_icoll_update(imx23_icoll_state *s)
+static void mxs_icoll_update(mxs_icoll_state *s)
 {
     int fiq = 0, irq = 0;
     int i;
@@ -71,19 +71,19 @@ static void imx23_icoll_update(imx23_icoll_state *s)
     qemu_set_irq(s->parent_fiq, fiq != 0);
 }
 
-static void imx23_icoll_set_irq(void *opaque, int irq, int level)
+static void mxs_icoll_set_irq(void *opaque, int irq, int level)
 {
-    imx23_icoll_state *s = (imx23_icoll_state *) opaque;
+    mxs_icoll_state *s = (mxs_icoll_state *) opaque;
     if (level)
         s->raised[(irq / 32)] |= 1 << (irq % 32);
     else
         s->raised[(irq / 32)] &= ~(1 << (irq % 32));
-    imx23_icoll_update(s);
+    mxs_icoll_update(s);
 }
 
-static uint64_t imx23_icoll_read(void *opaque, hwaddr offset, unsigned size)
+static uint64_t mxs_icoll_read(void *opaque, hwaddr offset, unsigned size)
 {
-    imx23_icoll_state *s = (imx23_icoll_state *) opaque;
+    mxs_icoll_state *s = (mxs_icoll_state *) opaque;
 
     switch (offset >> 4) {
         case 0 ... ICOLL_REG_MAX:
@@ -100,10 +100,10 @@ static uint64_t imx23_icoll_read(void *opaque, hwaddr offset, unsigned size)
     return 0;
 }
 
-static void imx23_icoll_write(
+static void mxs_icoll_write(
         void *opaque, hwaddr offset, uint64_t value, unsigned size)
 {
-    imx23_icoll_state *s = (imx23_icoll_state *) opaque;
+    mxs_icoll_state *s = (mxs_icoll_state *) opaque;
     uint32_t irqval, irqi = 0;
     uint32_t * dst = NULL;
     uint32_t oldvalue = 0;
@@ -125,7 +125,7 @@ static void imx23_icoll_write(
     if (!dst) {
         return;
     }
-    oldvalue = imx23_write(dst, offset, value, size);
+    oldvalue = mxs_write(dst, offset, value, size);
 
     switch (offset >> 4) {
         case ICOLL_CTRL:
@@ -151,49 +151,49 @@ static void imx23_icoll_write(
             else
                 s->fiq[irqi / 32] &= ~(1 << (irqi % 32));
             if (irqval & 0x8) // SOFTIRQ
-                imx23_icoll_set_irq(s, irqi, 1);
+                mxs_icoll_set_irq(s, irqi, 1);
             break;
     }
 
-    imx23_icoll_update(s);
+    mxs_icoll_update(s);
 }
 
-static const MemoryRegionOps imx23_icoll_ops = {
-    .read = imx23_icoll_read,
-    .write = imx23_icoll_write,
+static const MemoryRegionOps mxs_icoll_ops = {
+    .read = mxs_icoll_read,
+    .write = mxs_icoll_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_icoll_init(SysBusDevice *dev)
+static int mxs_icoll_init(SysBusDevice *dev)
 {
-    imx23_icoll_state *s = FROM_SYSBUS(imx23_icoll_state, dev);
+    mxs_icoll_state *s = FROM_SYSBUS(mxs_icoll_state, dev);
 
-    qdev_init_gpio_in(&dev->qdev, imx23_icoll_set_irq, 128);
+    qdev_init_gpio_in(&dev->qdev, mxs_icoll_set_irq, 128);
     sysbus_init_irq(dev, &s->parent_irq);
     sysbus_init_irq(dev, &s->parent_fiq);
-    memory_region_init_io(&s->iomem, &imx23_icoll_ops, s,
-            "imx23_icoll", 0x2000);
+    memory_region_init_io(&s->iomem, &mxs_icoll_ops, s,
+            "mxs_icoll", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
     return 0;
 }
 
-static void imx23_icoll_class_init(ObjectClass *klass, void *data)
+static void mxs_icoll_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_icoll_init;
+    sdc->init = mxs_icoll_init;
 }
 
 static TypeInfo icoll_info = {
-    .name          = "imx23_icoll",
+    .name          = "mxs_icoll",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_icoll_state),
-    .class_init    = imx23_icoll_class_init,
+    .instance_size = sizeof(mxs_icoll_state),
+    .class_init    = mxs_icoll_class_init,
 };
 
-static void imx23_icoll_register(void)
+static void mxs_icoll_register(void)
 {
     type_register_static(&icoll_info);
 }
 
-type_init(imx23_icoll_register)
+type_init(mxs_icoll_register)

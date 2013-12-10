@@ -1,5 +1,5 @@
 /*
- * imx23.c
+ * mxs.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -9,7 +9,7 @@
 #include "sysbus.h"
 #include "exec-memory.h"
 #include "arm-misc.h"
-#include "imx23.h"
+#include "mxs.h"
 
 #define D(w)
 //#define D(w) w
@@ -309,21 +309,21 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
 
     cpu_pic = arm_pic_init_cpu(cpu);
 
-    sysbus_create_simple("imx23_clkctrl", MX23_CLKCTRL_BASE_ADDR, 0);
+    sysbus_create_simple("mxs_clkctrl", MX23_CLKCTRL_BASE_ADDR, 0);
 
-    icoll = sysbus_create_varargs("imx23_icoll", MX23_ICOLL_BASE_ADDR,
+    icoll = sysbus_create_varargs("mxs_icoll", MX23_ICOLL_BASE_ADDR,
             cpu_pic[ARM_PIC_CPU_IRQ],
             cpu_pic[ARM_PIC_CPU_FIQ], NULL);
 
-    sysbus_create_varargs("imx23_timrot", MX23_TIMROT_BASE_ADDR,
+    sysbus_create_varargs("mxs_timrot", MX23_TIMROT_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_TIMER0),
             qdev_get_gpio_in(icoll, MX23_INT_TIMER1),
             qdev_get_gpio_in(icoll, MX23_INT_TIMER2),
             qdev_get_gpio_in(icoll, MX23_INT_TIMER3),
             NULL);
 
-    sysbus_create_simple("imx23_digctl", MX23_DIGCTL_BASE_ADDR, 0);
-    sysbus_create_varargs("imx23_pinctrl", MX23_PINCTRL_BASE_ADDR,
+    sysbus_create_simple("mxs_digctl", MX23_DIGCTL_BASE_ADDR, 0);
+    sysbus_create_varargs("mxs_pinctrl", MX23_PINCTRL_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_GPIO0),
             qdev_get_gpio_in(icoll, MX23_INT_GPIO1),
             qdev_get_gpio_in(icoll, MX23_INT_GPIO2),
@@ -339,25 +339,25 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
         cpu_physical_memory_rw(MX23_DUART_BASE_ADDR + 0x4 /* CR */,
                 (uint8_t*) &enable, 4, 1);
     }
-    sysbus_create_varargs("imx23_uart", MX23_AUART1_BASE_ADDR,
+    sysbus_create_varargs("mxs_uart", MX23_AUART1_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_AUART1),
             NULL);
-    sysbus_create_varargs("imx23_uart", MX23_AUART2_BASE_ADDR,
+    sysbus_create_varargs("mxs_uart", MX23_AUART2_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_AUART2),
             NULL);
-    sysbus_create_varargs("imx23_rtc", MX23_RTC_BASE_ADDR,
+    sysbus_create_varargs("mxs_rtc", MX23_RTC_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_RTC_ALARM),
             NULL);
-    sysbus_create_varargs("imx23_usb", MX23_USBCTRL_BASE_ADDR,
+    sysbus_create_varargs("mxs_usb", MX23_USBCTRL_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_USB_CTRL),
             NULL);
-    sysbus_create_simple("imx23_usbphy", MX23_USBPHY_BASE_ADDR, 0);
+    sysbus_create_simple("mxs_usbphy", MX23_USBPHY_BASE_ADDR, 0);
 
-    sysbus_create_varargs("imx23_apbh_dma", MX23_APBH_DMA_BASE_ADDR,
+    sysbus_create_varargs("mxs_apbh_dma", MX23_APBH_DMA_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_SSP1_DMA),
             qdev_get_gpio_in(icoll, MX23_INT_SSP2_DMA),
             NULL);
-    sysbus_create_varargs("imx23_apbx_dma", MX23_APBX_DMA_BASE_ADDR,
+    sysbus_create_varargs("mxs_apbx_dma", MX23_APBX_DMA_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_ADC_DMA),
             qdev_get_gpio_in(icoll, MX23_INT_DAC_DMA),
             qdev_get_gpio_in(icoll, MX23_INT_SPDIF_DMA),
@@ -369,11 +369,11 @@ ARMCPU * imx233_init(struct arm_boot_info * board_info)
             qdev_get_gpio_in(icoll, MX23_INT_AUART2_TX_DMA),
             qdev_get_gpio_in(icoll, MX23_INT_SAIF2_DMA),
             NULL);
-    sysbus_create_varargs("imx23_ssp", MX23_SSP1_BASE_ADDR,
+    sysbus_create_varargs("mxs_ssp", MX23_SSP1_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_SSP1_DMA),
             qdev_get_gpio_in(icoll, MX23_INT_SSP1_ERROR),
             NULL);
-    sysbus_create_varargs("imx23_ssp", MX23_SSP2_BASE_ADDR,
+    sysbus_create_varargs("mxs_ssp", MX23_SSP2_BASE_ADDR,
             qdev_get_gpio_in(icoll, MX23_INT_SSP2_DMA),
             qdev_get_gpio_in(icoll, MX23_INT_SSP2_ERROR),
             NULL);

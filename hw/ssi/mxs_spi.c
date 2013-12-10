@@ -1,5 +1,5 @@
 /*
- * imx23_ssp.c
+ * mxs_ssp.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -7,13 +7,13 @@
  */
 
 /*
- * This implements the SSP port(s) of the imx23. Currently hardcoded for the
+ * This implements the SSP port(s) of the mxs. Currently hardcoded for the
  * SD card interface, but as TODO it could rather easily be made to be generic
  * and support 'generic' SPI too.
  * It is geared toward working with DMA, as the linux drivers uses it that way.
  */
 #include "sysbus.h"
-#include "imx23.h"
+#include "mxs.h"
 #include "blockdev.h"
 #include "sd.h"
 
@@ -58,19 +58,19 @@ enum {
     STAT_CARD_DETECT = 28,
 };
 
-typedef struct imx23_ssp_state {
+typedef struct mxs_ssp_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
 
     uint32_t r[SSP_MAX];
     qemu_irq irq_dma, irq_error;
     SDState *sd;
-} imx23_ssp_state;
+} mxs_ssp_state;
 
-static uint64_t imx23_ssp_read(
+static uint64_t mxs_ssp_read(
         void *opaque, hwaddr offset, unsigned size)
 {
-    imx23_ssp_state *s = (imx23_ssp_state *) opaque;
+    mxs_ssp_state *s = (mxs_ssp_state *) opaque;
     uint32_t res = 0;
 
     switch (offset >> 4) {
@@ -109,11 +109,11 @@ static uint32_t __swap(uint32_t w)
  * processes one SD/MMC command train. It always have a 'command' but
  * can also have datas attached, this case is not handled here, it's
  * handled by the SD layer.
- * The command can either be short or long, wierdly, the imx23 returns
+ * The command can either be short or long, wierdly, the mxs returns
  * the bytes in some funky order that needs to be restored.
  * TODO: Make big endian compatible
  */
-static void imx23_process_cmd(imx23_ssp_state *s)
+static void mxs_process_cmd(mxs_ssp_state *s)
 {
     if (!(s->r[SSP_CTRL] & (1 << CTRL_ENABLE)))
         return;
@@ -145,15 +145,15 @@ static void imx23_process_cmd(imx23_ssp_state *s)
         s->r[SSP_STATUS] |= (1 << STAT_DATA_BUSY);
 }
 
-static void imx23_ssp_write(void *opaque, hwaddr offset,
+static void mxs_ssp_write(void *opaque, hwaddr offset,
         uint64_t value, unsigned size)
 {
-    imx23_ssp_state *s = (imx23_ssp_state *) opaque;
+    mxs_ssp_state *s = (mxs_ssp_state *) opaque;
     uint32_t oldvalue = 0;
 
     switch (offset >> 4) {
         case 0 ... SSP_MAX:
-            oldvalue = imx23_write(&s->r[offset >> 4], offset, value, size);
+            oldvalue = mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
@@ -170,7 +170,7 @@ static void imx23_ssp_write(void *opaque, hwaddr offset,
             }
             break;
         case SSP_SD_CMD1:
-            imx23_process_cmd(s);
+            mxs_process_cmd(s);
             break;
             /*
              * Write from DMA
@@ -188,20 +188,20 @@ static void imx23_ssp_write(void *opaque, hwaddr offset,
 }
 
 
-static const MemoryRegionOps imx23_ssp_ops = {
-    .read = imx23_ssp_read,
-    .write = imx23_ssp_write,
+static const MemoryRegionOps mxs_ssp_ops = {
+    .read = mxs_ssp_read,
+    .write = mxs_ssp_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_ssp_init(SysBusDevice *dev)
+static int mxs_ssp_init(SysBusDevice *dev)
 {
-    imx23_ssp_state *s = FROM_SYSBUS(imx23_ssp_state, dev);
+    mxs_ssp_state *s = FROM_SYSBUS(mxs_ssp_state, dev);
 
     sysbus_init_irq(dev, &s->irq_dma);
     sysbus_init_irq(dev, &s->irq_error);
-    memory_region_init_io(&s->iomem, &imx23_ssp_ops, s,
-            "imx23_ssp", 0x2000);
+    memory_region_init_io(&s->iomem, &mxs_ssp_ops, s,
+            "mxs_ssp", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 
     s->r[SSP_CTRL] = 0xc0000000;
@@ -216,24 +216,24 @@ static int imx23_ssp_init(SysBusDevice *dev)
 }
 
 
-static void imx23_ssp_class_init(ObjectClass *klass, void *data)
+static void mxs_ssp_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_ssp_init;
+    sdc->init = mxs_ssp_init;
 }
 
 static TypeInfo ssp_info = {
-    .name          = "imx23_ssp",
+    .name          = "mxs_ssp",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_ssp_state),
-    .class_init    = imx23_ssp_class_init,
+    .instance_size = sizeof(mxs_ssp_state),
+    .class_init    = mxs_ssp_class_init,
 };
 
-static void imx23_ssp_register(void)
+static void mxs_ssp_register(void)
 {
     type_register_static(&ssp_info);
 }
 
-type_init(imx23_ssp_register)
+type_init(mxs_ssp_register)
 

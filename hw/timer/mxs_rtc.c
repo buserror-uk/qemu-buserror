@@ -1,17 +1,17 @@
 /*
- * imx23_rtc.c
+ * mxs_rtc.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
  * QEMU Licence
  */
 /*
- * Implement the RTC block of the imx23. At least, the real time stuff.
+ * Implement the RTC block of the mxs. At least, the real time stuff.
  * TODO Alarm, and watchdog ?
  */
 
 #include "sysbus.h"
-#include "imx23.h"
+#include "mxs.h"
 
 #define D(w)
 
@@ -33,19 +33,19 @@ enum {
 
     RTC_MAX,
 };
-typedef struct imx23_rtc_state {
+typedef struct mxs_rtc_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
     uint32_t base_ms, base_s;
     uint32_t r[RTC_MAX];
     qemu_irq alarm_irq;
     CharDriverState *chr;
-} imx23_rtc_state;
+} mxs_rtc_state;
 
-static uint64_t imx23_rtc_read(
+static uint64_t mxs_rtc_read(
         void *opaque, hwaddr offset, unsigned size)
 {
-    imx23_rtc_state *s = (imx23_rtc_state *) opaque;
+    mxs_rtc_state *s = (mxs_rtc_state *) opaque;
     uint32_t res = 0;
 
     D(printf("%s %04x (%d) = ", __func__, (int)offset, size);)
@@ -69,16 +69,16 @@ static uint64_t imx23_rtc_read(
     return res;
 }
 
-static void imx23_rtc_write(void *opaque, hwaddr offset,
+static void mxs_rtc_write(void *opaque, hwaddr offset,
         uint64_t value, unsigned size)
 {
-    imx23_rtc_state *s = (imx23_rtc_state *) opaque;
+    mxs_rtc_state *s = (mxs_rtc_state *) opaque;
     uint32_t oldvalue = 0;
 
     D(printf("%s %04x %08x(%d)\n", __func__, (int)offset, (int)value, size);)
     switch (offset >> 4) {
         case 0 ... RTC_MAX:
-            imx23_write(&s->r[offset >> 4], offset, value, size);
+            mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
@@ -102,19 +102,19 @@ static void imx23_rtc_write(void *opaque, hwaddr offset,
     }
 }
 
-static const MemoryRegionOps imx23_rtc_ops = {
-    .read = imx23_rtc_read,
-    .write = imx23_rtc_write,
+static const MemoryRegionOps mxs_rtc_ops = {
+    .read = mxs_rtc_read,
+    .write = mxs_rtc_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int imx23_rtc_init(SysBusDevice *dev)
+static int mxs_rtc_init(SysBusDevice *dev)
 {
-    imx23_rtc_state *s = FROM_SYSBUS(imx23_rtc_state, dev);
+    mxs_rtc_state *s = FROM_SYSBUS(mxs_rtc_state, dev);
 
     sysbus_init_irq(dev, &s->alarm_irq);
-    memory_region_init_io(&s->iomem, &imx23_rtc_ops, s,
-            "imx23_rtc", 0x2000);
+    memory_region_init_io(&s->iomem, &mxs_rtc_ops, s,
+            "mxs_rtc", 0x2000);
     sysbus_init_mmio(dev, &s->iomem);
 
     s->r[RTC_CTRL] = 0xc0000000;
@@ -125,23 +125,23 @@ static int imx23_rtc_init(SysBusDevice *dev)
 }
 
 
-static void imx23_rtc_class_init(ObjectClass *klass, void *data)
+static void mxs_rtc_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_rtc_init;
+    sdc->init = mxs_rtc_init;
 }
 
 static TypeInfo rtc_info = {
-    .name          = "imx23_rtc",
+    .name          = "mxs_rtc",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_rtc_state),
-    .class_init    = imx23_rtc_class_init,
+    .instance_size = sizeof(mxs_rtc_state),
+    .class_init    = mxs_rtc_class_init,
 };
 
-static void imx23_rtc_register(void)
+static void mxs_rtc_register(void)
 {
     type_register_static(&rtc_info);
 }
 
-type_init(imx23_rtc_register)
+type_init(mxs_rtc_register)

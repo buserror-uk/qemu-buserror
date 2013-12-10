@@ -1,5 +1,5 @@
 /*
- * imx23_dma.c
+ * mxs_dma.c
  *
  * Copyright: Michel Pollet <buserror@gmail.com>
  *
@@ -7,13 +7,13 @@
  */
 
 /*
- * Implements the DMA block of the imx23.
+ * Implements the DMA block of the mxs.
  * The current implementation can run chains of commands etc, however it's only
  * been tested with SSP for SD/MMC card access. It ought to work with normal SPI
  * too, and possibly other peripherals, however it's entirely untested
  */
 #include "sysbus.h"
-#include "imx23.h"
+#include "mxs.h"
 
 /*
  * DMA IO block register numbers
@@ -75,18 +75,18 @@ struct mxs_dma_ccw {
 /*
  * Per channel DMA description
  */
-typedef struct imx23_dma_channel {
+typedef struct mxs_dma_channel {
     QEMUTimer *timer;
-    struct imx23_dma_state *dma;
+    struct mxs_dma_state *dma;
     int channel; // channel index
     hwaddr base; // base of peripheral
     hwaddr dataoffset; // offset of the true in/out data latch register
     uint32_t r[10];
     qemu_irq irq;
-} imx23_dma_channel;
+} mxs_dma_channel;
 
 
-typedef struct imx23_dma_state {
+typedef struct mxs_dma_state {
     SysBusDevice busdev;
     MemoryRegion iomem;
     const char * name;
@@ -95,10 +95,10 @@ typedef struct imx23_dma_state {
     uint32_t r[DMA_MAX];
 
     hwaddr base; // base of peripheral
-    imx23_dma_channel channel[DMA_MAX_CHANNELS];
-} imx23_dma_state;
+    mxs_dma_channel channel[DMA_MAX_CHANNELS];
+} mxs_dma_state;
 
-static void imx23_dma_ch_update(imx23_dma_channel *s)
+static void mxs_dma_ch_update(mxs_dma_channel *s)
 {
     struct mxs_dma_ccw req;
     int i;
@@ -166,15 +166,15 @@ static void imx23_dma_ch_update(imx23_dma_channel *s)
 }
 
 /* called on one shot timer activation */
-static void imx23_dma_ch_run(void *opaque)
+static void mxs_dma_ch_run(void *opaque)
 {
-    imx23_dma_channel *s = opaque;
-    imx23_dma_ch_update(s);
+    mxs_dma_channel *s = opaque;
+    mxs_dma_ch_update(s);
 }
 
-static uint64_t imx23_dma_read(void *opaque, hwaddr offset, unsigned size)
+static uint64_t mxs_dma_read(void *opaque, hwaddr offset, unsigned size)
 {
-    imx23_dma_state *s = (imx23_dma_state *) opaque;
+    mxs_dma_state *s = (mxs_dma_state *) opaque;
     uint32_t res = 0;
 
     switch (offset >> 4) {
@@ -196,22 +196,22 @@ static uint64_t imx23_dma_read(void *opaque, hwaddr offset, unsigned size)
     return res;
 }
 
-static void imx23_dma_write(void *opaque, hwaddr offset, uint64_t value,
+static void mxs_dma_write(void *opaque, hwaddr offset, uint64_t value,
         unsigned size)
 {
-    imx23_dma_state *s = (imx23_dma_state *) opaque;
+    mxs_dma_state *s = (mxs_dma_state *) opaque;
     uint32_t oldvalue = 0;
     int channel, word, i;
 
     switch (offset >> 4) {
         case 0 ... DMA_MAX - 1:
-            oldvalue = imx23_write(&s->r[offset >> 4], offset, value, size);
+            oldvalue = mxs_write(&s->r[offset >> 4], offset, value, size);
             break;
         default:
             if (offset >= s->base) {
                 channel = (offset - s->base) / DMA_STRIDE;
                 word = (offset - s->base) % DMA_STRIDE;
-                oldvalue = imx23_write(
+                oldvalue = mxs_write(
                         &s->channel[channel].r[word >> 4], word,
                         value, size);
                 switch (word >> 4) {
@@ -220,7 +220,7 @@ static void imx23_dma_write(void *opaque, hwaddr offset, uint64_t value,
                         s->channel[channel].r[CH_SEMA] =
                                 (oldvalue & ~0xff) |
                                 (s->channel[channel].r[CH_SEMA] & 0xff);
-                        imx23_dma_ch_update(&s->channel[channel]);
+                        mxs_dma_ch_update(&s->channel[channel]);
                         break;
                 }
             } else {
@@ -253,30 +253,30 @@ static void imx23_dma_write(void *opaque, hwaddr offset, uint64_t value,
 }
 
 
-static const MemoryRegionOps imx23_dma_ops = {
-    .read = imx23_dma_read,
-    .write = imx23_dma_write,
+static const MemoryRegionOps mxs_dma_ops = {
+    .read = mxs_dma_read,
+    .write = mxs_dma_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static void imx23_dma_common_init(imx23_dma_state *s)
+static void mxs_dma_common_init(mxs_dma_state *s)
 {
     int i;
-    memory_region_init_io(&s->iomem, &imx23_dma_ops, s, "imx23_dma", 0x2000);
+    memory_region_init_io(&s->iomem, &mxs_dma_ops, s, "mxs_dma", 0x2000);
     sysbus_init_mmio(&s->busdev, &s->iomem);
     for (i = 0; i < DMA_MAX_CHANNELS; i++) {
         s->channel[i].dma = s;
         s->channel[i].channel = i;
         s->channel[i].timer =
-                qemu_new_timer_ns(vm_clock, imx23_dma_ch_run, &s->channel[i]);
+                qemu_new_timer_ns(vm_clock, mxs_dma_ch_run, &s->channel[i]);
     }
 }
 
-static int imx23_apbh_dma_init(SysBusDevice *dev)
+static int mxs_apbh_dma_init(SysBusDevice *dev)
 {
-    imx23_dma_state *s = FROM_SYSBUS(imx23_dma_state, dev);
+    mxs_dma_state *s = FROM_SYSBUS(mxs_dma_state, dev);
 
-    imx23_dma_common_init(s);
+    mxs_dma_common_init(s);
     s->name = "dma_apbh";
     s->base = 0x40;
     sysbus_init_irq(dev, &s->channel[MX23_DMA_SSP1].irq);
@@ -289,11 +289,11 @@ static int imx23_apbh_dma_init(SysBusDevice *dev)
     return 0;
 }
 
-static int imx23_apbx_dma_init(SysBusDevice *dev)
+static int mxs_apbx_dma_init(SysBusDevice *dev)
 {
-    imx23_dma_state *s = FROM_SYSBUS(imx23_dma_state, dev);
+    mxs_dma_state *s = FROM_SYSBUS(mxs_dma_state, dev);
 
-    imx23_dma_common_init(s);
+    mxs_dma_common_init(s);
     s->name = "dma_apbx";
     s->base = 0x100;
     sysbus_init_irq(dev, &s->channel[MX23_DMA_ADC].irq);
@@ -310,37 +310,37 @@ static int imx23_apbx_dma_init(SysBusDevice *dev)
     return 0;
 }
 
-static void imx23_apbh_dma_class_init(ObjectClass *klass, void *data)
+static void mxs_apbh_dma_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_apbh_dma_init;
+    sdc->init = mxs_apbh_dma_init;
 }
 
-static void imx23_apbx_dma_class_init(ObjectClass *klass, void *data)
+static void mxs_apbx_dma_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
-    sdc->init = imx23_apbx_dma_init;
+    sdc->init = mxs_apbx_dma_init;
 }
 
 static TypeInfo apbh_dma_info = {
-    .name          = "imx23_apbh_dma",
+    .name          = "mxs_apbh_dma",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_dma_state),
-    .class_init    = imx23_apbh_dma_class_init,
+    .instance_size = sizeof(mxs_dma_state),
+    .class_init    = mxs_apbh_dma_class_init,
 };
 static TypeInfo apbx_dma_info = {
-    .name          = "imx23_apbx_dma",
+    .name          = "mxs_apbx_dma",
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(imx23_dma_state),
-    .class_init    = imx23_apbx_dma_class_init,
+    .instance_size = sizeof(mxs_dma_state),
+    .class_init    = mxs_apbx_dma_class_init,
 };
 
-static void imx23_dma_register(void)
+static void mxs_dma_register(void)
 {
     type_register_static(&apbh_dma_info);
     type_register_static(&apbx_dma_info);
 }
 
-type_init(imx23_dma_register)
+type_init(mxs_dma_register)

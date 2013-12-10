@@ -21,7 +21,7 @@
 #include "exec-memory.h"
 #include "arm-misc.h"
 #include "boards.h"
-#include "imx23.h"
+#include "mxs.h"
 #include "sysbus.h"
 #include "bitbang_i2c.h"
 
